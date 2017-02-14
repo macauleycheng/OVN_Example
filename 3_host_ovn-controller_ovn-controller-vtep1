@@ -1,0 +1,134 @@
+#This example has 2 real host and 1 emulated switch, the OVS code is from github.
+#2 host run ovn-controller and 1 switch run ovn-controller-vtep
+#Each host/switch has a VM on it
+#In my home folder I has a ovs folder which git from ovs github
+#My purpose is to let three VM can ping to each other.
+
+HOST1:
+	modprobe openvswitch
+	modprobe vxlan
+	modprobe geneve
+  rm -rf *.db
+	ovsdb-tool create ovn-sb.db /opt/stack/ovs/ovn/ovn-sb.ovsschema
+	ovsdb-tool create ovn-nb.db /opt/stack/ovs/ovn/ovn-nb.ovsschema
+	ovsdb-tool create conf.db /opt/stack/ovs/vswitchd/vswitch.ovsschema
+
+	ovsdb-server --monitor -vconsole:off --remote=punix:/home/manager/ovn-nb.sock --remote=ptcp:6641 ovn-nb.db --pidfile=/home/manager/ovn-nb.pid --detach
+	ovsdb-server --monitor -vconsole:off --remote=punix:/home/manager/ovn-sb.sock --remote=ptcp:6642 ovn-sb.db --pidfile=/home/manager/ovn-sb.pid --detach
+
+	ovn-northd --pidfile --ovnnb-db=tcp:192.168.201.67:6641 --ovnsb-db=tcp:192.168.201.67:6642 --detach
+
+	ovsdb-server --monitor -vconsole:off --remote=punix:/home/manager/db.sock conf.db --detach --pidfile
+	ovs-vswitchd -vconsole:off unix:/home/manager/db.sock --pidfile --detach
+	ovn-controller --pidfile --detach unix:/home/manager/db.sock 
+
+	ovs-vsctl --db=unix:/home/manager/db.sock set open . external-ids:system-id=11111111-1234-1234-1234-1234567890
+	ovs-vsctl --db=unix:/home/manager/db.sock set open . external-ids:ovn-remote=tcp:192.168.201.67:6642
+	ovs-vsctl --db=unix:/home/manager/db.sock set open . external-ids:ovn-encap-type=geneve,vxlan
+	ovs-vsctl --db=unix:/home/manager/db.sock set open . external-ids:ovn-encap-ip=192.168.201.67
+  
+  #create VM and connect to vswitch
+	ip link add veth1 type veth peer name vtap1
+	ip netns add host1
+	ip link set veth1 netns host1
+
+	ip link set dev vtap1 up
+	ip netns exec host1 ip link set veth1 up
+	ip netns exec host1 ifconfig lo up
+	ip netns exec host1 ip addr add 172.16.2.1/24 dev veth1
+  ip netns exec host1 ifconfig veth1 hw ether 00:00:00:11:11:11
+       
+  ovs-vsctl --db=unix:/home/manager/db.sock add-port br-int vtap1 -- set Interface vtap1 external_ids:iface-id=sw0-port1
+
+HOST2:
+	modprobe openvswitch
+	modprobe vxlan
+	modprobe geneve
+  rm -rf *.db
+	ovsdb-tool create conf.db /opt/stack/ovs/vswitchd/vswitch.ovsschema
+	ovsdb-server --monitor -vconsole:off --remote=punix:/home/manager/db.sock conf.db --detach --pidfile
+	ovs-vswitchd -vconsole:off unix:/home/manager/db.sock --pidfile --detach
+	ovn-controller --pidfile --detach unix:/home/manager/db.sock 
+
+	ovs-vsctl --db=unix:/home/manager/db.sock set open . external-ids:system-id=22222222-1234-1234-1234-1234567890
+	ovs-vsctl --db=unix:/home/manager/db.sock set open . external-ids:ovn-remote=tcp:192.168.201.67:6642
+	ovs-vsctl --db=unix:/home/manager/db.sock set open . external-ids:ovn-encap-type=geneve,vxlan
+	ovs-vsctl --db=unix:/home/manager/db.sock set open . external-ids:ovn-encap-ip=192.168.201.68
+
+  #create VM and connect to vswitch
+	ip link add veth2 type veth peer name vtap2
+	ip netns add host2
+	ip link set veth2 netns host2
+
+	ip link set dev vtap2 up
+	ip netns exec host2 ip link set veth2 up
+	ip netns exec host2 ifconfig lo up
+	ip netns exec host2 ip addr add 172.16.2.2/24 dev veth2
+  ip netns exec host2 ifconfig veth2 hw ether 00:00:00:22:22:22
+
+  ovs-vsctl --db=unix:/home/manager/db.sock add-port br-int vtap2 -- set Interface vtap2 external_ids:iface-id=sw0-port2
+
+
+PHY_Switch:
+  rm *.db
+	ovsdb-tool create conf.db ovs/vswitchd/vswitch.ovsschema
+	ovsdb-tool create vtep.db ovs/vtep/vtep.ovsschema
+
+	ovsdb-server --monitor -vconsole:off --remote=punix:/home/manager/db.sock --remote=db:hardware_vtep,Global,managers vtep.db conf.db --detach --pidfile
+	ovs-vswitchd -vconsole:off unix:/home/manager/db.sock --pidfile --detach
+	ovn-controller-vtep --vtep-db=unix:/home/manager/db.sock --ovnsb-db=tcp:192.168.201.67:6642 --detach --no-chdir --pidfile
+
+	vtep-ctl --db=unix:/home/manager/db.sock add-ps PS1
+	vtep-ctl --db=unix:/home/manager/db.sock set Physical_Switch PS1 tunnel_ips=192.168.201.69
+
+  ovs-vsctl --db=unix:/home/manager/db.sock add-br PS1
+  ./ovs/vtep/ovs-vtep --pidfile --detach PS1
+
+  #create VM and connect to physical switch
+	ip link add veth3 type veth peer name vtap3
+	ip netns add host3
+	ip link set veth3 netns host3
+
+	ip link set dev vtap3 up
+	ip netns exec host3 ip link set veth3 up
+  ip netns exec host3 ip link add link veth3 name veth3.1 type vlan id 1
+	ip netns exec host3 ifconfig lo up
+	ip netns exec host3 ip addr add 172.16.2.4/24 dev veth3.1
+  ip netns exec host3 ifconfig veth3.1 up
+	ip netns exec host3 ifconfig veth3.1 hw ether 00:00:00:33:33:33
+
+	ovs-vsctl --db=unix:/home/manager/db.sock add-port PS1 vtap3 -- set Interface vtap3 external_ids:iface-id=sw0-vtep-port1
+  vtep-ctl --db=unix:/home/manager/db.sock add-ls LS1 -- bind-ls PS1 vtap3 1 LS1
+
+	
+Set up virtual bridge:
+	ovn-nbctl --db=unix:/home/manager/ovn-nb.sock ls-add sw0
+	ovn-nbctl --db=unix:/home/manager/ovn-nb.sock lsp-add sw0 sw0-port1
+  ovn-nbctl --db=unix:/home/manager/ovn-nb.sock lsp-set-addresses sw0-port1 00:00:00:11:11:11
+	ovn-nbctl --db=unix:/home/manager/ovn-nb.sock lsp-add sw0 sw0-port2
+  ovn-nbctl --db=unix:/home/manager/ovn-nb.sock lsp-set-addresses sw0-port2 00:00:00:22:22:22
+	ovn-nbctl --db=unix:/home/manager/ovn-nb.sock --timeout=10 --wait=sb sync
+	ovn-sbctl --db=unix:/home/manager/ovn-sb.sock show
+
+	ovn-nbctl --db=unix:/home/manager/ovn-nb.sock lsp-add sw0 sw0-vtep-port1
+	ovn-nbctl --db=unix:/home/manager/ovn-nb.sock lsp-set-type sw0-vtep-port1 vtep
+  ovn-nbctl --db=unix:/home/manager/ovn-nb.sock lsp-set-addresses sw0-vtep-port1 00:00:00:33:33:33
+	ovn-nbctl --db=unix:/home/manager/ovn-nb.sock lsp-set-options sw0-vtep-port1 vtep-physical-switch=PS1 vtep-logical-switch=LS1
+  ovn-sbctl --db=unix:/home/manager/ovn-sb.sock show
+
+ON_PHY_SWITCH: you can see the vtep has two remote MAC
+  vtep-ctl --db=unix:/home/manager/db.sock --columns=MAC list Ucast_Macs_Remote
+
+ON_HOST1:       
+	ip netns exec host1 ping 172.16.2.2
+  ip netns exec host1 ping 172.16.2.4
+
+ON_HOST2:
+  ip netns exec host2 ping 172.16.2.1
+  ip netns exec host2 ping 172.16.2.4
+  
+ON_PHY_SWITCH:  
+  ip netns exec host2 ping 172.16.2.1
+  ip netns exec host2 ping 172.16.2.2
+  
+
