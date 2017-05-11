@@ -1,0 +1,25 @@
+FROM centos
+LABEL version="2.7.100"
+LABEL description="OVN controller"
+
+#EXPOSE 6641 6642
+
+COPY dockerfile_build_temp/openvswitch-ovn-host-2.7.100-1.el7.centos.x86_64.rpm /openvswitch-ovn-host-2.7.100-1.el7.centos.x86_64.rpm
+COPY dockerfile_build_temp/openvswitch-ovn-common-2.7.100-1.el7.centos.x86_64.rpm /openvswitch-ovn-common-2.7.100-1.el7.centos.x86_64.rpm
+COPY dockerfile_build_temp/openvswitch-2.7.100-1.el7.centos.x86_64.rpm /openvswitch-2.7.100-1.el7.centos.x86_64.rpm
+COPY dockerfile_build_temp/run_command /usr/bin/run_command
+RUN chmod +x /usr/bin/run_command
+
+#install packages
+RUN yum install -y /openvswitch-ovn-host-2.7.100-1.el7.centos.x86_64.rpm /openvswitch-2.7.100-1.el7.centos.x86_64.rpm /openvswitch-ovn-common-2.7.100-1.el7.centos.x86_64.rpm                   
+
+#clear not used packages 
+RUN yum autoremove -y
+RUN rm -rf  /openvswitch-ovn-host-2.7.100-1.el7.centos.x86_64.rpm  /openvswitch-ovn-common-2.7.100-1.el7.centos.x86_64.rpm  /openvswitch-2.7.100-1.el7.centos.x86_64.rpm
+
+RUN /usr/bin/ovsdb-tool create /var/lib/openvswitch/conf.db /usr/share/openvswitch/vswitch.ovsschema
+RUN mkdir /var/run/openvswitch
+
+
+CMD /usr/bin/run_command
+
