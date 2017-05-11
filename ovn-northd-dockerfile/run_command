@@ -1,0 +1,29 @@
+#!/bin/sh
+/usr/sbin/ovsdb-server --detach --monitor -vconsole:off \
+                       --log-file=/var/log/openvswitch/ovsdb-server-nb.log \
+                       --remote=punix:/run/openvswitch/ovnnb_db.sock \
+                       --pidfile=/run/openvswitch/ovnnb_db.pid \
+                       --remote=db:OVN_Northbound,NB_Global,connections \
+                       --unixctl=ovnnb_db.ctl \
+                       --private-key=db:OVN_Northbound,SSL,private_key \
+                       --certificate=db:OVN_Northbound,SSL,certificate \
+                       --ca-cert=db:OVN_Northbound,SSL,ca_cert \
+                       /var/lib/openvswitch/ovnnb_db.db
+
+/usr/sbin/ovsdb-server --detach --monitor -vconsole:off \
+                       --log-file=/var/log/openvswitch/ovsdb-server-sb.log \
+                       --remote=punix:/run/openvswitch/ovnsb_db.sock \
+                       --pidfile=/run/openvswitch/ovnsb_db.pid \
+                       --remote=db:OVN_Southbound,SB_Global,connections \
+                       --unixctl=ovnsb_db.ctl \
+                       --private-key=db:OVN_Southbound,SSL,private_key \
+                       --certificate=db:OVN_Southbound,SSL,certificate \
+                       --ca-cert=db:OVN_Southbound,SSL,ca_cert \
+                       /var/lib/openvswitch/ovnsb_db.db
+
+/usr/bin/ovn-northd -vconsole:info -vsyslog:info -vfile:info \
+                    --ovnnb-db=unix:/run/openvswitch/ovnnb_db.sock \
+                    --ovnsb-db=unix:/run/openvswitch/ovnsb_db.sock \
+                    --no-chdir --log-file=/var/log/openvswitch/ovn-northd.log \
+                    --pidfile=/run/openvswitch/ovn-northd.pid \
+                    --monitor

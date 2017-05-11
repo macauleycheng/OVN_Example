@@ -1,0 +1,32 @@
+FROM centos
+LABEL version="2.7.100"
+LABEL description="OVN centrall"
+
+EXPOSE 6641 6642
+
+COPY dockerfile_build_temp/openvswitch-ovn-central-2.7.100-1.el7.centos.x86_64.rpm /openvswitch-ovn-central-2.7.100-1.el7.centos.x86_64.rpm
+COPY dockerfile_build_temp/openvswitch-ovn-common-2.7.100-1.el7.centos.x86_64.rpm /openvswitch-ovn-common-2.7.100-1.el7.centos.x86_64.rpm
+COPY dockerfile_build_temp/openvswitch-2.7.100-1.el7.centos.x86_64.rpm /openvswitch-2.7.100-1.el7.centos.x86_64.rpm
+COPY dockerfile_build_temp/run_command /usr/bin/run_command
+RUN chmod +x /usr/bin/run_command
+
+#install packages
+RUN yum install -y /openvswitch-ovn-central-2.7.100-1.el7.centos.x86_64.rpm /openvswitch-ovn-common-2.7.100-1.el7.centos.x86_64.rpm /firewalld-filesystem-0.4.3.2-8.1.el7_3.2.noarch.rpm /openvswitch-2.7.100-1.el7.centos.x86_64.rpm
+
+#clear not used packages 
+RUN yum autoremove -y
+RUN rm -rf  /openvswitch-ovn-central-2.7.100-1.el7.centos.x86_64.rpm \
+       /openvswitch-ovn-common-2.7.100-1.el7.centos.x86_64.rpm \
+       /openvswitch-2.7.100-1.el7.centos.x86_64.rpm \
+
+RUN touch /var/lib/openvswitch/ovnnb_db.db
+RUN /usr/bin/ovsdb-tool create /var/lib/openvswitch/ovnnb_db.db /usr/share/openvswitch/ovn-nb.ovsschema
+#RUN touch /var/lib/openvswitch/ovnsb_db.db
+RUN /usr/bin/ovsdb-tool create /var/lib/openvswitch/ovnsb_db.db /usr/share/openvswitch/ovn-sb.ovsschema
+#RUN ls /var/lib/openvswitch/
+RUN mkdir /run/openvswitch
+RUN ls /usr/bin/ovn-northd
+
+
+CMD /usr/bin/run_command
+
