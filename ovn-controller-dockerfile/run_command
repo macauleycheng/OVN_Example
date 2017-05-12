@@ -12,9 +12,11 @@
 /usr/sbin/ovs-vswitchd unix:/var/run/openvswitch/db.sock \
                       -vconsole:emer -vsyslog:err -vfile:info --mlockall --no-chdir \
                       --log-file=/var/log/openvswitch/ovs-vswitchd.log \
+                      --pidfile=/var/run/openvswitch/ovs-vswitchd.pid \
                       --detach
 
 /usr/bin/ovn-controller unix:/var/run/openvswitch/db.sock \
                -vconsole:emer -vsyslog:err -vfile:info --no-chdir \
                --log-file=/var/log/openvswitch/ovn-controller.log \
+               --pidfile=/var/run/openvswitch/ovn-controller.pid \
                --monitor
