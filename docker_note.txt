@@ -1,0 +1,22 @@
+#Use overlay instead of devicemapping on prodction environment
+/etc/systemd/system/docker.service
+[Service]
+MountFlags=shared
+ExecStart=/usr/bin/dockerd --storage-driver=overlay
+
+
+#Start docker example
+
+export mgmt_intf_ip=192.168.200.71
+export northd=$(docker run -d --privileged --network=host --name ovn-northd -v "/etc/localtime:/etc/localtime:ro"  -v "/run:/run:shared" -v "/lib/modules:/lib/modules:ro" -v /var/log/openvswitch:/var/log/openvswitch ovn-northd)
+docker exec $northd ovn-nbctl set-connection ptcp:6641:$mgmt_intf_ip
+docker exec $northd ovn-sbctl set-connection ptcp:6642:$mgmt_intf_ip
+
+
+mkdir -p /var/run/openvswitch
+export controller=$(docker run -d --privileged --network=host --name ovn-controller -v "/etc/localtime:/etc/localtime:ro"  -v "/run:/run:shared" -v "/lib/modules:/lib/modules:ro" -v /var/log/openvswitch:/var/log/openvswitch ovn-controller)
+docker exec $controller ovs-vsctl set open . external-ids:system-id=$(hostname)
+docker exec $controller ovs-vsctl set open . external-ids:ovn-remote=tcp:$mgmt_intf_ip:6642
+docker exec $controller ovs-vsctl set open . external-ids:ovn-encap-type=geneve
+docker exec $controller ovs-vsctl set open . external-ids:ovn-encap-ip=$mgmt_intf_ip
+
