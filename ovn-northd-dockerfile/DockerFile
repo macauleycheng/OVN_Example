@@ -17,9 +17,9 @@ RUN yum install -y /openvswitch-ovn-central-2.7.100-1.el7.centos.x86_64.rpm /ope
 RUN yum autoremove -y
 RUN rm -rf  /openvswitch-ovn-central-2.7.100-1.el7.centos.x86_64.rpm \
        /openvswitch-ovn-common-2.7.100-1.el7.centos.x86_64.rpm \
-       /openvswitch-2.7.100-1.el7.centos.x86_64.rpm \
+       /openvswitch-2.7.100-1.el7.centos.x86_64.rpm
 
-RUN touch /var/lib/openvswitch/ovnnb_db.db
+#RUN touch /var/lib/openvswitch/ovnnb_db.db
 RUN /usr/bin/ovsdb-tool create /var/lib/openvswitch/ovnnb_db.db /usr/share/openvswitch/ovn-nb.ovsschema
 #RUN touch /var/lib/openvswitch/ovnsb_db.db
 RUN /usr/bin/ovsdb-tool create /var/lib/openvswitch/ovnsb_db.db /usr/share/openvswitch/ovn-sb.ovsschema
@@ -28,5 +28,5 @@ RUN mkdir /run/openvswitch
 RUN ls /usr/bin/ovn-northd
 
 
-CMD /usr/bin/run_command
+CMD [ "/usr/bin/run_command" ]
 

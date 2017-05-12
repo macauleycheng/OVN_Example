@@ -21,5 +21,5 @@ RUN /usr/bin/ovsdb-tool create /var/lib/openvswitch/conf.db /usr/share/openvswit
 RUN mkdir /var/run/openvswitch
 
 
-CMD /usr/bin/run_command
+CMD [ "/usr/bin/run_command" ]
 
