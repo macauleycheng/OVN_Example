@@ -2,7 +2,7 @@ FROM centos
 LABEL version="2.7.100"
 LABEL description="OVN centrall"
 
-EXPOSE 6641 6642
+#EXPOSE 6641 6642
 
 COPY dockerfile_build_temp/openvswitch-ovn-central-2.7.100-1.el7.centos.x86_64.rpm /openvswitch-ovn-central-2.7.100-1.el7.centos.x86_64.rpm
 COPY dockerfile_build_temp/openvswitch-ovn-common-2.7.100-1.el7.centos.x86_64.rpm /openvswitch-ovn-common-2.7.100-1.el7.centos.x86_64.rpm
