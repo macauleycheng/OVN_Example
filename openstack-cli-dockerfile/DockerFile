@@ -1,0 +1,15 @@
+FROM centos
+LABEL description="OpenStack CLI"
+LABEL version="Newton"
+
+RUN yum install -y centos-release-openstack-newton
+RUN yum install -y python-openstackclient
+
+RUN echo "#!/bin/sh" > /root/sleep.sh
+RUN echo "while true; do sleep 10; done" >> /root/sleep.sh
+RUN chmod +x /root/sleep.sh
+
+CMD [ "/root/sleep.sh" ]
+
+
+
